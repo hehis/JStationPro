@@ -1,0 +1,48 @@
+# Build directories
+build/
+bin/
+out/
+
+# C++ compiled files & Visual Studio
+*.obj
+*.o
+*.pdb
+*.ilk
+*.idb
+*.exp
+*.lib
+*.a
+*.exe
+*.dll
+*.so
+*.dylib
+.vs/
+*.user
+*.suo
+*.sln.docstates
+
+# CMake generated files
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+*.cmake
+!CMakeLists.txt
+mocs_compilation_*.cpp
+*.moc
+moc_*.cpp
+qrc_*.cpp
+ui_*.h
+
+# Qt Creator & QML cache
+*.qmlc
+*.jsc
+.qmake.stash
+
+# OS & temporary files
+Thumbs.db
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.log
+*.tmp
+sample_audio.wav

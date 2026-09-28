@@ -14,70 +14,6 @@ ApplicationWindow {
     title: "JStation Pro - Professional Audio Waveform Editor"
     color: "#12131A"
 
-    // View range states (in frames)
-    property var viewStartFrame: 0
-    property var viewEndFrame: 0
-
-    // When audio loads or totalFrames changes, reset view
-    Connections {
-        target: audioEngine
-        function onWaveformChanged() {
-            clampViewRange()
-        }
-        function onTotalFramesChanged() {
-            if (audioEngine.totalFrames > 0 && (viewEndFrame <= 0 || viewEndFrame > audioEngine.totalFrames)) {
-                viewStartFrame = 0
-                viewEndFrame = audioEngine.totalFrames
-            } else {
-                clampViewRange()
-            }
-        }
-    }
-
-    function clampViewRange() {
-        var total = audioEngine.totalFrames
-        if (total <= 0) {
-            viewStartFrame = 0
-            viewEndFrame = 0
-            return
-        }
-        if (viewStartFrame < 0) viewStartFrame = 0
-        if (viewEndFrame > total || viewEndFrame <= 0) viewEndFrame = total
-        if (viewEndFrame <= viewStartFrame) {
-            viewEndFrame = Math.min(total, viewStartFrame + Math.max(100, Math.floor(total * 0.05)))
-        }
-    }
-
-    function zoomAt(centerRatio, factor) {
-        var total = audioEngine.totalFrames
-        if (total <= 0) return
-
-        var curLen = viewEndFrame - viewStartFrame
-        var newLen = curLen * factor
-        var minLen = Math.min(total, Math.max(64, audioEngine.sampleRate / 100)) // at least 10ms
-        var maxLen = total
-
-        if (newLen < minLen) newLen = minLen
-        if (newLen > maxLen) newLen = maxLen
-
-        var centerFrame = viewStartFrame + curLen * centerRatio
-        var newStart = Math.floor(centerFrame - newLen * centerRatio)
-        var newEnd = Math.floor(newStart + newLen)
-
-        if (newStart < 0) {
-            newEnd -= newStart
-            newStart = 0
-        }
-        if (newEnd > total) {
-            newStart -= (newEnd - total)
-            newEnd = total
-        }
-        if (newStart < 0) newStart = 0
-
-        viewStartFrame = newStart
-        viewEndFrame = newEnd
-    }
-
     function formatTime(seconds) {
         if (isNaN(seconds) || seconds < 0) seconds = 0
         var mins = Math.floor(seconds / 60)
@@ -86,6 +22,16 @@ ApplicationWindow {
         return (mins < 10 ? "0" : "") + mins + ":" +
                (secs < 10 ? "0" : "") + secs + "." +
                (ms < 100 ? (ms < 10 ? "00" : "0") : "") + ms
+    }
+
+    // Drag and drop file support
+    DropArea {
+        anchors.fill: parent
+        onDropped: {
+            if (drop.hasUrls && drop.urls.length > 0) {
+                audioEngine.openAudioFile(drop.urls[0])
+            }
+        }
     }
 
     // Keyboard shortcuts for editing
@@ -99,7 +45,7 @@ ApplicationWindow {
                 audioEngine.cutSelection()
                 event.accepted = true
             } else if (event.matches(StandardKey.Paste)) {
-                var insertPos = audioEngine.hasSelection ? audioEngine.selectionStart : viewStartFrame
+                var insertPos = audioEngine.hasSelection ? audioEngine.selectionStart : audioEngine.viewStartFrame
                 audioEngine.pasteAt(insertPos)
                 event.accepted = true
             } else if (event.matches(StandardKey.Delete) || event.key === Qt.Key_Backspace) {
@@ -219,7 +165,7 @@ ApplicationWindow {
                         radius: 5
                     }
                     onClicked: {
-                        var pos = audioEngine.hasSelection ? audioEngine.selectionStart : viewStartFrame
+                        var pos = audioEngine.hasSelection ? audioEngine.selectionStart : audioEngine.viewStartFrame
                         audioEngine.pasteAt(pos)
                     }
                 }
@@ -257,7 +203,7 @@ ApplicationWindow {
                         color: parent.enabled ? (parent.hovered ? "#334155" : "#1E293B") : "#161E2E"
                         radius: 5
                     }
-                    onClicked: zoomAt(0.5, 0.7)
+                    onClicked: audioEngine.zoomAt(0.5, 0.7)
                 }
 
                 Button {
@@ -273,7 +219,7 @@ ApplicationWindow {
                         color: parent.enabled ? (parent.hovered ? "#334155" : "#1E293B") : "#161E2E"
                         radius: 5
                     }
-                    onClicked: zoomAt(0.5, 1.4)
+                    onClicked: audioEngine.zoomAt(0.5, 1.4)
                 }
 
                 Button {
@@ -289,10 +235,7 @@ ApplicationWindow {
                         color: parent.enabled ? (parent.hovered ? "#334155" : "#1E293B") : "#161E2E"
                         radius: 5
                     }
-                    onClicked: {
-                        viewStartFrame = 0
-                        viewEndFrame = audioEngine.totalFrames
-                    }
+                    onClicked: audioEngine.resetView()
                 }
 
                 Item { Layout.fillWidth: true }
@@ -392,8 +335,10 @@ ApplicationWindow {
                     id: maskOverlay
                     anchors.fill: thumbWave
 
-                    property real rStart: audioEngine.totalFrames > 0 ? (viewStartFrame / audioEngine.totalFrames) : 0.0
-                    property real rEnd: audioEngine.totalFrames > 0 ? (viewEndFrame / audioEngine.totalFrames) : 1.0
+                    property real rStart: (audioEngine.totalFrames > 0 && audioEngine.viewEndFrame > audioEngine.viewStartFrame) ?
+                                          (audioEngine.viewStartFrame / audioEngine.totalFrames) : 0.0
+                    property real rEnd: (audioEngine.totalFrames > 0 && audioEngine.viewEndFrame > audioEngine.viewStartFrame) ?
+                                        (audioEngine.viewEndFrame / audioEngine.totalFrames) : 1.0
 
                     property real maskX: rStart * width
                     property real maskW: Math.max(8, (rEnd - rStart) * width)
@@ -404,6 +349,7 @@ ApplicationWindow {
                         width: maskOverlay.maskX
                         height: parent.height
                         color: "#AA090B10"
+                        visible: maskOverlay.maskX > 1
                     }
 
                     // Active window mask
@@ -436,16 +382,14 @@ ApplicationWindow {
 
                                 onPressed: {
                                     startX = mouse.x
-                                    origFrame = viewStartFrame
+                                    origFrame = audioEngine.viewStartFrame
                                 }
                                 onPositionChanged: {
                                     if (pressed && audioEngine.totalFrames > 0) {
                                         var deltaX = mouse.x - startX
                                         var deltaFrames = (deltaX / maskOverlay.width) * audioEngine.totalFrames
                                         var newStart = Math.round(origFrame + deltaFrames)
-                                        if (newStart < 0) newStart = 0
-                                        if (newStart > viewEndFrame - 100) newStart = viewEndFrame - 100
-                                        viewStartFrame = newStart
+                                        audioEngine.setViewStartFrame(newStart)
                                     }
                                 }
                             }
@@ -470,16 +414,14 @@ ApplicationWindow {
 
                                 onPressed: {
                                     startX = mouse.x
-                                    origFrame = viewEndFrame
+                                    origFrame = audioEngine.viewEndFrame
                                 }
                                 onPositionChanged: {
                                     if (pressed && audioEngine.totalFrames > 0) {
                                         var deltaX = mouse.x - startX
                                         var deltaFrames = (deltaX / maskOverlay.width) * audioEngine.totalFrames
                                         var newEnd = Math.round(origFrame + deltaFrames)
-                                        if (newEnd > audioEngine.totalFrames) newEnd = audioEngine.totalFrames
-                                        if (newEnd < viewStartFrame + 100) newEnd = viewStartFrame + 100
-                                        viewEndFrame = newEnd
+                                        audioEngine.setViewEndFrame(newEnd)
                                     }
                                 }
                             }
@@ -500,8 +442,8 @@ ApplicationWindow {
 
                             onPressed: {
                                 startMouseX = mouse.x
-                                origStartFrame = viewStartFrame
-                                origEndFrame = viewEndFrame
+                                origStartFrame = audioEngine.viewStartFrame
+                                origEndFrame = audioEngine.viewEndFrame
                             }
                             onPositionChanged: {
                                 if (pressed && audioEngine.totalFrames > 0) {
@@ -520,8 +462,7 @@ ApplicationWindow {
                                         nStart = nEnd - len
                                     }
 
-                                    viewStartFrame = nStart
-                                    viewEndFrame = nEnd
+                                    audioEngine.setViewRange(nStart, nEnd)
                                 }
                             }
                         }
@@ -534,6 +475,7 @@ ApplicationWindow {
                         width: Math.max(0, parent.width - x)
                         height: parent.height
                         color: "#AA090B10"
+                        visible: width > 1
                     }
 
                     // Mouse Wheel on Thumbnail: Zooms the mask
@@ -543,9 +485,9 @@ ApplicationWindow {
                         onWheel: {
                             var ratio = wheel.x / width
                             if (wheel.angleDelta.y > 0) {
-                                zoomAt(ratio, 0.8)
+                                audioEngine.zoomAt(ratio, 0.8)
                             } else if (wheel.angleDelta.y < 0) {
-                                zoomAt(ratio, 1.25)
+                                audioEngine.zoomAt(ratio, 1.25)
                             }
                             wheel.accepted = true
                         }
@@ -553,13 +495,12 @@ ApplicationWindow {
                             // Click outside mask jumps active window
                             if (mouse.x < activeWindow.x || mouse.x > activeWindow.x + activeWindow.width) {
                                 var ratio = mouse.x / width
-                                var len = viewEndFrame - viewStartFrame
+                                var len = audioEngine.viewEndFrame - audioEngine.viewStartFrame
                                 var nStart = Math.floor(ratio * audioEngine.totalFrames - len / 2)
                                 var nEnd = nStart + len
                                 if (nStart < 0) { nStart = 0; nEnd = len; }
                                 if (nEnd > audioEngine.totalFrames) { nEnd = audioEngine.totalFrames; nStart = nEnd - len; }
-                                viewStartFrame = Math.max(0, nStart)
-                                viewEndFrame = Math.min(audioEngine.totalFrames, nEnd)
+                                audioEngine.setViewRange(nStart, nEnd)
                             }
                         }
                     }
@@ -576,8 +517,8 @@ ApplicationWindow {
                 }
                 Item { Layout.fillWidth: true }
                 Text {
-                    text: "View: " + formatTime(audioEngine.frameToSeconds(viewStartFrame)) +
-                          " - " + formatTime(audioEngine.frameToSeconds(viewEndFrame)) +
+                    text: "View: " + formatTime(audioEngine.frameToSeconds(audioEngine.viewStartFrame)) +
+                          " - " + formatTime(audioEngine.frameToSeconds(audioEngine.viewEndFrame)) +
                           " | Click & Drag to Select | Wheel to Zoom"
                     font.pixelSize: 11
                     color: "#64748B"
@@ -600,8 +541,8 @@ ApplicationWindow {
                     anchors.margins: 2
                     audioEngine: audioEngine
                     isThumbnail: false
-                    viewStartFrame: root.viewStartFrame
-                    viewEndFrame: root.viewEndFrame
+                    viewStartFrame: audioEngine.viewStartFrame
+                    viewEndFrame: audioEngine.viewEndFrame
                     waveColor: "#00B4D8"
                     backgroundColor: "#161824"
                     selectionColor: "#55FF4D4D"
@@ -620,9 +561,9 @@ ApplicationWindow {
                     onWheel: {
                         var ratio = wheel.x / width
                         if (wheel.angleDelta.y > 0) {
-                            zoomAt(ratio, 0.8)
+                            audioEngine.zoomAt(ratio, 0.8)
                         } else if (wheel.angleDelta.y < 0) {
-                            zoomAt(ratio, 1.25)
+                            audioEngine.zoomAt(ratio, 1.25)
                         }
                         wheel.accepted = true
                     }
@@ -689,14 +630,13 @@ ApplicationWindow {
         id: fileDialog
         title: "Please choose an audio file"
         nameFilters: [
-            "Audio files (*.wav *.mp3 *.flac *.aac *.ogg *.m4a *.wma)",
+            "All supported audio (*.wav *.mp3 *.flac *.aac *.ogg *.m4a *.wma)",
             "Wave files (*.wav)",
             "MP3 files (*.mp3)",
             "All files (*.*)"
         ]
         onAccepted: {
-            var path = fileDialog.fileUrl.toString()
-            audioEngine.openAudioFile(path)
+            audioEngine.openAudioFile(fileDialog.fileUrl)
         }
     }
 }

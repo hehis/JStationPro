@@ -54,3 +54,16 @@ add_executable(test_piecetable
 )
 target_link_libraries(test_piecetable PRIVATE Qt5::Core)
 
+add_executable(test_audio_engine
+    tests/test_audio_engine.cpp
+    src/AudioEngine.cpp
+    src/PieceTable.cpp
+    src/PeakCache.cpp
+)
+target_link_libraries(test_audio_engine PRIVATE
+    Qt5::Core
+    Qt5::Multimedia
+    Qt5::Concurrent
+)
+
+

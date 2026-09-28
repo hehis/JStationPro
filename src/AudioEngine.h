@@ -19,6 +19,8 @@ class AudioEngine : public QObject {
     Q_PROPERTY(double durationSeconds READ durationSeconds NOTIFY totalFramesChanged)
     Q_PROPERTY(int sampleRate READ sampleRate NOTIFY totalFramesChanged)
     Q_PROPERTY(int channels READ channels NOTIFY totalFramesChanged)
+    Q_PROPERTY(qint64 viewStartFrame READ viewStartFrame WRITE setViewStartFrame NOTIFY viewRangeChanged)
+    Q_PROPERTY(qint64 viewEndFrame READ viewEndFrame WRITE setViewEndFrame NOTIFY viewRangeChanged)
     Q_PROPERTY(qint64 selectionStart READ selectionStart NOTIFY selectionChanged)
     Q_PROPERTY(qint64 selectionEnd READ selectionEnd NOTIFY selectionChanged)
     Q_PROPERTY(bool hasSelection READ hasSelection NOTIFY selectionChanged)
@@ -38,6 +40,9 @@ public:
     int sampleRate() const { return m_pieceTable.sampleRate(); }
     int channels() const { return m_pieceTable.channels(); }
 
+    qint64 viewStartFrame() const { return m_viewStartFrame; }
+    qint64 viewEndFrame() const { return m_viewEndFrame; }
+
     qint64 selectionStart() const { return m_selectionStart; }
     qint64 selectionEnd() const { return m_selectionEnd; }
     bool hasSelection() const { return m_selectionStart >= 0 && m_selectionEnd > m_selectionStart; }
@@ -46,6 +51,12 @@ public:
     const PieceTable& pieceTable() const { return m_pieceTable; }
 
     Q_INVOKABLE void openAudioFile(const QString &filePathOrUrl);
+    Q_INVOKABLE void setViewStartFrame(qint64 frame);
+    Q_INVOKABLE void setViewEndFrame(qint64 frame);
+    Q_INVOKABLE void setViewRange(qint64 startFrame, qint64 endFrame);
+    Q_INVOKABLE void zoomAt(qreal centerRatio, qreal factor);
+    Q_INVOKABLE void resetView();
+
     Q_INVOKABLE void setSelection(qint64 startFrame, qint64 endFrame);
     Q_INVOKABLE void clearSelection();
     Q_INVOKABLE void cutSelection();
@@ -63,6 +74,7 @@ signals:
     void statusMessageChanged();
     void totalFramesChanged();
     void waveformChanged();
+    void viewRangeChanged();
     void selectionChanged();
     void canPasteChanged();
     void decodeError(const QString &errorString);
@@ -78,6 +90,7 @@ private:
     void startDecoding(const QString &localFilePath);
     bool tryFastWavDecode(const QString &localFilePath);
     void finishLoading(QVector<int16_t> &&decodedSamples, int sampleRate, int channels);
+    void clampViewRange();
 
     PieceTable m_pieceTable;
 
@@ -85,6 +98,9 @@ private:
     bool m_isDecoding;
     qreal m_decodeProgress;
     QString m_statusMessage;
+
+    qint64 m_viewStartFrame;
+    qint64 m_viewEndFrame;
 
     qint64 m_selectionStart;
     qint64 m_selectionEnd;

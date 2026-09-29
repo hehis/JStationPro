@@ -232,25 +232,36 @@ void WaveformItem::paint(QPainter *painter)
     painter->setPen(QPen(m_waveColor, 1));
     painter->drawLines(lines.constData(), lines.size());
 
-    // Draw Selection overlay
-    if (m_audioEngine->hasSelection()) {
+    // Draw Selection overlay or Cursor
+    if (m_audioEngine->selectionStart() >= 0) {
         qint64 selStart = m_audioEngine->selectionStart();
         qint64 selEnd   = m_audioEngine->selectionEnd();
 
-        if (selEnd > rStart && selStart < rEnd) {
-            qreal x1 = (static_cast<qreal>(std::max(selStart, rStart) - rStart) / rLen) * w;
-            qreal x2 = (static_cast<qreal>(std::min(selEnd, rEnd) - rStart) / rLen) * w;
-            qreal selW = std::max<qreal>(1.0, x2 - x1);
+        bool hasRange = (selEnd > selStart);
 
-            QRectF selRect(x1, 0, selW, h);
-            painter->fillRect(selRect, m_selectionColor);
+        if (hasRange) {
+            if (selEnd > rStart && selStart < rEnd) {
+                qreal x1 = (static_cast<qreal>(std::max(selStart, rStart) - rStart) / rLen) * w;
+                qreal x2 = (static_cast<qreal>(std::min(selEnd, rEnd) - rStart) / rLen) * w;
+                qreal selW = std::max<qreal>(1.0, x2 - x1);
 
-            painter->setPen(QPen(QColor(255, 80, 80, 220), 1.5));
-            if (selStart >= rStart) {
-                painter->drawLine(QLineF(x1, 0, x1, h));
+                QRectF selRect(x1, 0, selW, h);
+                painter->fillRect(selRect, m_selectionColor);
+
+                painter->setPen(QPen(QColor(255, 80, 80, 220), 1.5));
+                if (selStart >= rStart) {
+                    painter->drawLine(QLineF(x1, 0, x1, h));
+                }
+                if (selEnd <= rEnd) {
+                    painter->drawLine(QLineF(x2, 0, x2, h));
+                }
             }
-            if (selEnd <= rEnd) {
-                painter->drawLine(QLineF(x2, 0, x2, h));
+        } else {
+            // Draw single cursor line
+            if (selStart >= rStart && selStart <= rEnd) {
+                qreal xCursor = (static_cast<qreal>(selStart - rStart) / rLen) * w;
+                painter->setPen(QPen(QColor(255, 80, 80, 220), 1.5));
+                painter->drawLine(QLineF(xCursor, 0, xCursor, h));
             }
         }
     }

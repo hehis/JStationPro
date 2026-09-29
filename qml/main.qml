@@ -602,7 +602,7 @@ ApplicationWindow {
                     onReleased: {
                         isSelecting = false
                         if (cppAudioEngine && Math.abs(cppAudioEngine.selectionEnd - cppAudioEngine.selectionStart) < 10) {
-                            cppAudioEngine.clearSelection()
+                            cppAudioEngine.setSelection(dragStartFrame, dragStartFrame)
                         }
                     }
                 }

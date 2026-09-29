@@ -362,6 +362,32 @@ ApplicationWindow {
                     id: maskOverlay
                     anchors.fill: thumbWave
 
+                    // Background MouseArea (Bottom of Z-order)
+                    MouseArea {
+                        anchors.fill: parent
+                        onWheel: {
+                            if (!cppAudioEngine) return
+                            var ratio = wheel.x / width
+                            if (wheel.angleDelta.y > 0) {
+                                cppAudioEngine.zoomAt(ratio, 0.8)
+                            } else if (wheel.angleDelta.y < 0) {
+                                cppAudioEngine.zoomAt(ratio, 1.25)
+                            }
+                            wheel.accepted = true
+                        }
+                        onPressed: {
+                            if (!cppAudioEngine || cppAudioEngine.totalFrames <= 0) return
+                            // Click outside mask jumps active window
+                            var ratio = mouse.x / width
+                            var len = cppAudioEngine.viewEndFrame - cppAudioEngine.viewStartFrame
+                            var nStart = Math.floor(ratio * cppAudioEngine.totalFrames - len / 2)
+                            var nEnd = nStart + len
+                            if (nStart < 0) { nStart = 0; nEnd = len; }
+                            if (nEnd > cppAudioEngine.totalFrames) { nEnd = cppAudioEngine.totalFrames; nStart = nEnd - len; }
+                            cppAudioEngine.setViewRange(nStart, nEnd)
+                        }
+                    }
+
                     property real rStart: (cppAudioEngine && cppAudioEngine.totalFrames > 0 && cppAudioEngine.viewEndFrame > cppAudioEngine.viewStartFrame) ?
                                           (cppAudioEngine.viewStartFrame / cppAudioEngine.totalFrames) : 0.0
                     property real rEnd: (cppAudioEngine && cppAudioEngine.totalFrames > 0 && cppAudioEngine.viewEndFrame > cppAudioEngine.viewStartFrame) ?
@@ -490,34 +516,7 @@ ApplicationWindow {
                         visible: width > 1
                     }
 
-                    // Mouse Wheel on Thumbnail: Zooms the mask
-                    MouseArea {
-                        anchors.fill: parent
-                        propagateComposedEvents: true
-                        onWheel: {
-                            if (!cppAudioEngine) return
-                            var ratio = wheel.x / width
-                            if (wheel.angleDelta.y > 0) {
-                                cppAudioEngine.zoomAt(ratio, 0.8)
-                            } else if (wheel.angleDelta.y < 0) {
-                                cppAudioEngine.zoomAt(ratio, 1.25)
-                            }
-                            wheel.accepted = true
-                        }
-                        onPressed: {
-                            if (!cppAudioEngine || cppAudioEngine.totalFrames <= 0) return
-                            // Click outside mask jumps active window
-                            if (mouse.x < activeWindow.x || mouse.x > activeWindow.x + activeWindow.width) {
-                                var ratio = mouse.x / width
-                                var len = cppAudioEngine.viewEndFrame - cppAudioEngine.viewStartFrame
-                                var nStart = Math.floor(ratio * cppAudioEngine.totalFrames - len / 2)
-                                var nEnd = nStart + len
-                                if (nStart < 0) { nStart = 0; nEnd = len; }
-                                if (nEnd > cppAudioEngine.totalFrames) { nEnd = cppAudioEngine.totalFrames; nStart = nEnd - len; }
-                                cppAudioEngine.setViewRange(nStart, nEnd)
-                            }
-                        }
-                    }
+                    // End of maskOverlay
                 }
             }
 

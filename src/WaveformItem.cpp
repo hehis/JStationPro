@@ -256,6 +256,9 @@ void WaveformItem::paint(QPainter *painter)
         QVector<QLineF> lines;
         lines.reserve(w);
 
+        qreal prevYTop = 0;
+        qreal prevYBottom = 0;
+
         for (int x = 0; x < w; ++x) {
             qint64 fStart = rStart + (static_cast<qint64>(x) * rLen) / w;
             qint64 fEnd   = rStart + (static_cast<qint64>(x + 1) * rLen) / w;
@@ -265,13 +268,28 @@ void WaveformItem::paint(QPainter *painter)
 
             qreal yTop    = centerY - (static_cast<qreal>(peak.maxVal) / 32768.0) * halfH;
             qreal yBottom = centerY - (static_cast<qreal>(peak.minVal) / 32768.0) * halfH;
+            qreal trueYTop = yTop;
+            qreal trueYBottom = yBottom;
+
+            if (x > 0) {
+                // Bridge the gap between adjacent pixels to maintain visual continuity
+                if (yBottom < prevYTop) {
+                    yBottom = prevYTop;
+                }
+                if (yTop > prevYBottom) {
+                    yTop = prevYBottom;
+                }
+            }
 
             if (yBottom - yTop < 2.0) {
-                yTop = centerY - 1.0;
-                yBottom = centerY + 1.0;
+                yTop = (yTop + yBottom) / 2.0 - 1.0;
+                yBottom = yTop + 2.0;
             }
 
             lines.push_back(QLineF(x, yTop, x, yBottom));
+            
+            prevYTop = trueYTop;
+            prevYBottom = trueYBottom;
         }
 
         painter->setPen(QPen(m_waveColor, 1));

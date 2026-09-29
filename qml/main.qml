@@ -44,28 +44,30 @@ ApplicationWindow {
     }
 
     // Keyboard shortcuts for editing
-    Item {
-        focus: true
-        Keys.onPressed: {
-            if (!cppAudioEngine) return
-            if (event.matches(StandardKey.Copy)) {
-                cppAudioEngine.copySelection()
-                event.accepted = true
-            } else if (event.matches(StandardKey.Cut)) {
-                cppAudioEngine.cutSelection()
-                event.accepted = true
-            } else if (event.matches(StandardKey.Paste)) {
+    Shortcut {
+        sequence: StandardKey.Cut
+        onActivated: if (cppAudioEngine && cppAudioEngine.hasSelection) cppAudioEngine.cutSelection()
+    }
+    Shortcut {
+        sequence: StandardKey.Copy
+        onActivated: if (cppAudioEngine && cppAudioEngine.hasSelection) cppAudioEngine.copySelection()
+    }
+    Shortcut {
+        sequence: StandardKey.Paste
+        onActivated: {
+            if (cppAudioEngine && cppAudioEngine.canPaste) {
                 var insertPos = cppAudioEngine.hasSelection ? cppAudioEngine.selectionStart : cppAudioEngine.viewStartFrame
                 cppAudioEngine.pasteAt(insertPos)
-                event.accepted = true
-            } else if (event.matches(StandardKey.Delete) || event.key === Qt.Key_Backspace) {
-                cppAudioEngine.deleteSelection()
-                event.accepted = true
-            } else if (event.matches(StandardKey.SelectAll)) {
-                cppAudioEngine.setSelection(0, cppAudioEngine.totalFrames)
-                event.accepted = true
             }
         }
+    }
+    Shortcut {
+        sequences: [StandardKey.Delete, "Backspace"]
+        onActivated: if (cppAudioEngine && cppAudioEngine.hasSelection) cppAudioEngine.deleteSelection()
+    }
+    Shortcut {
+        sequence: StandardKey.SelectAll
+        onActivated: if (cppAudioEngine) cppAudioEngine.setSelection(0, cppAudioEngine.totalFrames)
     }
 
     ColumnLayout {

@@ -205,32 +205,78 @@ void WaveformItem::paint(QPainter *painter)
     // Disable antialiasing for crisp single-pixel vertical lines
     painter->setRenderHint(QPainter::Antialiasing, false);
 
-    QVector<QLineF> lines;
-    lines.reserve(w);
-
     const PieceTable &pt = m_audioEngine->pieceTable();
 
-    for (int x = 0; x < w; ++x) {
-        qint64 fStart = rStart + (static_cast<qint64>(x) * rLen) / w;
-        qint64 fEnd   = rStart + (static_cast<qint64>(x + 1) * rLen) / w;
-        if (fEnd <= fStart) fEnd = fStart + 1;
+    if (rLen <= w) {
+        // Zoomed in: 1 pixel or more per sample
+        // Enable antialiasing for smooth lines
+        painter->setRenderHint(QPainter::Antialiasing, true);
 
-        PeakPoint peak = pt.queryLogicalRange(fStart, fEnd - fStart);
+        QVector<QPointF> points;
+        points.reserve(rLen + 1);
 
-        qreal yTop    = centerY - (static_cast<qreal>(peak.maxVal) / 32768.0) * halfH;
-        qreal yBottom = centerY - (static_cast<qreal>(peak.minVal) / 32768.0) * halfH;
+        qreal spacing = static_cast<qreal>(w) / static_cast<qreal>(rLen);
+        bool showText = spacing >= 35.0; // Show value text if spacing is comfortable
 
-        // Ensure minimum 2-pixel visible trace
-        if (yBottom - yTop < 2.0) {
-            yTop = centerY - 1.0;
-            yBottom = centerY + 1.0;
+        painter->setFont(QFont("Arial", 8));
+        QPen textPen(QColor(200, 200, 200));
+
+        for (qint64 i = 0; i < rLen; ++i) {
+            qint64 frame = rStart + i;
+            PeakPoint peak = pt.queryLogicalRange(frame, 1);
+            qreal y = centerY - (static_cast<qreal>(peak.maxVal) / 32768.0) * halfH;
+            qreal x = (static_cast<qreal>(i) / static_cast<qreal>(rLen)) * w;
+            points.push_back(QPointF(x, y));
         }
 
-        lines.push_back(QLineF(x, yTop, x, yBottom));
-    }
+        // Connect the dots
+        painter->setPen(QPen(m_waveColor, 1.5));
+        painter->drawPolyline(points.constData(), points.size());
 
-    painter->setPen(QPen(m_waveColor, 1));
-    painter->drawLines(lines.constData(), lines.size());
+        // Draw points and optional text
+        for (int i = 0; i < points.size(); ++i) {
+            QPointF p = points[i];
+            // Draw a small circle at the sample point
+            painter->setBrush(m_waveColor);
+            painter->setPen(Qt::NoPen);
+            painter->drawEllipse(p, 3.0, 3.0);
+
+            if (showText) {
+                PeakPoint peak = pt.queryLogicalRange(rStart + i, 1);
+                painter->setPen(textPen);
+                QString valStr = QString::number(peak.maxVal);
+                // Draw text above the point, or below if it's near the top
+                qreal ty = (p.y() > 20) ? p.y() - 8 : p.y() + 15;
+                painter->drawText(QRectF(p.x() - 30, ty - 10, 60, 20), Qt::AlignCenter, valStr);
+            }
+        }
+    } else {
+        // Zoomed out: multiple samples per pixel
+        painter->setRenderHint(QPainter::Antialiasing, false);
+        QVector<QLineF> lines;
+        lines.reserve(w);
+
+        for (int x = 0; x < w; ++x) {
+            qint64 fStart = rStart + (static_cast<qint64>(x) * rLen) / w;
+            qint64 fEnd   = rStart + (static_cast<qint64>(x + 1) * rLen) / w;
+            if (fEnd <= fStart) fEnd = fStart + 1;
+
+            PeakPoint peak = pt.queryLogicalRange(fStart, fEnd - fStart);
+
+            qreal yTop    = centerY - (static_cast<qreal>(peak.maxVal) / 32768.0) * halfH;
+            qreal yBottom = centerY - (static_cast<qreal>(peak.minVal) / 32768.0) * halfH;
+
+            if (yBottom - yTop < 2.0) {
+                yTop = centerY - 1.0;
+                yBottom = centerY + 1.0;
+            }
+
+            lines.push_back(QLineF(x, yTop, x, yBottom));
+        }
+
+        painter->setPen(QPen(m_waveColor, 1));
+        painter->drawLines(lines.constData(), lines.size());
+    }
 
     // Draw Selection overlay or Cursor
     if (m_audioEngine->selectionStart() >= 0) {

@@ -434,7 +434,7 @@ void AudioEngine::setViewStartFrame(qint64 frame)
 {
     qint64 total = totalFrames();
     if (total <= 0) return;
-    frame = std::max<qint64>(0, std::min<qint64>(frame, m_viewEndFrame - 100));
+    frame = std::max<qint64>(0, std::min<qint64>(frame, m_viewEndFrame - 10));
     if (m_viewStartFrame != frame) {
         m_viewStartFrame = frame;
         emit viewRangeChanged();
@@ -445,7 +445,7 @@ void AudioEngine::setViewEndFrame(qint64 frame)
 {
     qint64 total = totalFrames();
     if (total <= 0) return;
-    frame = std::min<qint64>(total, std::max<qint64>(frame, m_viewStartFrame + 100));
+    frame = std::min<qint64>(total, std::max<qint64>(frame, m_viewStartFrame + 10));
     if (m_viewEndFrame != frame) {
         m_viewEndFrame = frame;
         emit viewRangeChanged();
@@ -458,7 +458,7 @@ void AudioEngine::setViewRange(qint64 startFrame, qint64 endFrame)
     if (total <= 0) return;
     startFrame = std::max<qint64>(0, startFrame);
     endFrame   = std::min<qint64>(total, endFrame);
-    if (endFrame <= startFrame) endFrame = std::min<qint64>(total, startFrame + 100);
+    if (endFrame <= startFrame) endFrame = std::min<qint64>(total, startFrame + 10);
 
     if (m_viewStartFrame != startFrame || m_viewEndFrame != endFrame) {
         m_viewStartFrame = startFrame;
@@ -477,7 +477,7 @@ void AudioEngine::zoomAt(qreal centerRatio, qreal factor)
     if (curLen <= 0) curLen = total;
 
     qint64 newLen = static_cast<qint64>(curLen * factor);
-    qint64 minLen = std::min<qint64>(total, std::max<qint64>(64, m_pieceTable.sampleRate() / 100));
+    qint64 minLen = std::min<qint64>(total, 10); // Allow deep zoom to 10 samples
     if (newLen < minLen) newLen = minLen;
     if (newLen > total) newLen = total;
 

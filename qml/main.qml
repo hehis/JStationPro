@@ -404,18 +404,10 @@ ApplicationWindow {
                                 hoverEnabled: true
                                 cursorShape: Qt.SizeHorCursor
 
-                                property real startX: 0
-                                property real origFrame: 0
-
-                                onPressed: {
-                                    startX = mouse.x
-                                    origFrame = cppAudioEngine ? cppAudioEngine.viewStartFrame : 0
-                                }
                                 onPositionChanged: {
                                     if (pressed && cppAudioEngine && cppAudioEngine.totalFrames > 0) {
-                                        var deltaX = mouse.x - startX
-                                        var deltaFrames = (deltaX / maskOverlay.width) * cppAudioEngine.totalFrames
-                                        var newStart = Math.round(origFrame + deltaFrames)
+                                        var pt = mapToItem(maskOverlay, mouse.x, 0)
+                                        var newStart = Math.round((pt.x / maskOverlay.width) * cppAudioEngine.totalFrames)
                                         cppAudioEngine.setViewStartFrame(newStart)
                                     }
                                 }
@@ -436,18 +428,10 @@ ApplicationWindow {
                                 hoverEnabled: true
                                 cursorShape: Qt.SizeHorCursor
 
-                                property real startX: 0
-                                property real origFrame: 0
-
-                                onPressed: {
-                                    startX = mouse.x
-                                    origFrame = cppAudioEngine ? cppAudioEngine.viewEndFrame : 0
-                                }
                                 onPositionChanged: {
                                     if (pressed && cppAudioEngine && cppAudioEngine.totalFrames > 0) {
-                                        var deltaX = mouse.x - startX
-                                        var deltaFrames = (deltaX / maskOverlay.width) * cppAudioEngine.totalFrames
-                                        var newEnd = Math.round(origFrame + deltaFrames)
+                                        var pt = mapToItem(maskOverlay, mouse.x, 0)
+                                        var newEnd = Math.round((pt.x / maskOverlay.width) * cppAudioEngine.totalFrames)
                                         cppAudioEngine.setViewEndFrame(newEnd)
                                     }
                                 }
@@ -463,18 +447,19 @@ ApplicationWindow {
                             anchors.bottom: parent.bottom
                             cursorShape: Qt.SizeAllCursor
 
-                            property real startMouseX: 0
+                            property real startMappedX: 0
                             property real origStartFrame: 0
                             property real origEndFrame: 0
 
                             onPressed: {
-                                startMouseX = mouse.x
+                                startMappedX = mapToItem(maskOverlay, mouse.x, 0).x
                                 origStartFrame = cppAudioEngine ? cppAudioEngine.viewStartFrame : 0
                                 origEndFrame = cppAudioEngine ? cppAudioEngine.viewEndFrame : 0
                             }
                             onPositionChanged: {
                                 if (pressed && cppAudioEngine && cppAudioEngine.totalFrames > 0) {
-                                    var deltaX = mouse.x - startMouseX
+                                    var currentMappedX = mapToItem(maskOverlay, mouse.x, 0).x
+                                    var deltaX = currentMappedX - startMappedX
                                     var deltaFrames = Math.round((deltaX / maskOverlay.width) * cppAudioEngine.totalFrames)
                                     var len = origEndFrame - origStartFrame
                                     var nStart = origStartFrame + deltaFrames

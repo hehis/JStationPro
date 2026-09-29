@@ -7,7 +7,7 @@
 class WaveformItem : public QQuickPaintedItem {
     Q_OBJECT
 
-    Q_PROPERTY(AudioEngine* audioEngine READ audioEngine WRITE setAudioEngine NOTIFY audioEngineChanged)
+    Q_PROPERTY(QObject* audioEngine READ audioEngine WRITE setAudioEngine NOTIFY audioEngineChanged)
     Q_PROPERTY(qint64 viewStartFrame READ viewStartFrame WRITE setViewStartFrame NOTIFY viewRangeChanged)
     Q_PROPERTY(qint64 viewEndFrame READ viewEndFrame WRITE setViewEndFrame NOTIFY viewRangeChanged)
     Q_PROPERTY(bool isThumbnail READ isThumbnail WRITE setIsThumbnail NOTIFY isThumbnailChanged)
@@ -19,13 +19,23 @@ public:
     explicit WaveformItem(QQuickItem *parent = nullptr);
     ~WaveformItem() override = default;
 
-    AudioEngine* audioEngine() const { return m_audioEngine; }
-    void setAudioEngine(AudioEngine *engine);
+    QObject* audioEngine() const { return m_audioEngine; }
+    void setAudioEngine(QObject *engine);
 
-    qint64 viewStartFrame() const { return m_viewStartFrame; }
+    qint64 viewStartFrame() const {
+        if (!m_isThumbnail && m_viewEndFrame <= m_viewStartFrame && m_audioEngine) {
+            return m_audioEngine->viewStartFrame();
+        }
+        return m_viewStartFrame;
+    }
     void setViewStartFrame(qint64 start);
 
-    qint64 viewEndFrame() const { return m_viewEndFrame; }
+    qint64 viewEndFrame() const {
+        if (!m_isThumbnail && m_viewEndFrame <= m_viewStartFrame && m_audioEngine) {
+            return m_audioEngine->viewEndFrame();
+        }
+        return m_viewEndFrame;
+    }
     void setViewEndFrame(qint64 end);
 
     bool isThumbnail() const { return m_isThumbnail; }

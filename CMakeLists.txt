@@ -12,6 +12,7 @@ set(CMAKE_AUTOUIC ON)
 find_package(Qt5 5.15 REQUIRED COMPONENTS
     Core
     Gui
+    Widgets
     Qml
     Quick
     Multimedia
@@ -36,6 +37,7 @@ add_executable(JStationPro ${SOURCES})
 target_link_libraries(JStationPro PRIVATE
     Qt5::Core
     Qt5::Gui
+    Qt5::Widgets
     Qt5::Qml
     Qt5::Quick
     Qt5::Multimedia
@@ -62,8 +64,11 @@ add_executable(test_audio_engine
 )
 target_link_libraries(test_audio_engine PRIVATE
     Qt5::Core
+    Qt5::Gui
+    Qt5::Widgets
     Qt5::Multimedia
     Qt5::Concurrent
 )
+
 
 

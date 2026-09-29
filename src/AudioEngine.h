@@ -51,6 +51,7 @@ public:
     const PieceTable& pieceTable() const { return m_pieceTable; }
 
     Q_INVOKABLE void openAudioFile(const QString &filePathOrUrl);
+    Q_INVOKABLE void importAudioDialog();
     Q_INVOKABLE void setViewStartFrame(qint64 frame);
     Q_INVOKABLE void setViewEndFrame(qint64 frame);
     Q_INVOKABLE void setViewRange(qint64 startFrame, qint64 endFrame);

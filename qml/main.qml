@@ -1,7 +1,6 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
-import QtQuick.Dialogs 1.3
 import JStation 1.0
 
 ApplicationWindow {
@@ -24,12 +23,22 @@ ApplicationWindow {
                (ms < 100 ? (ms < 10 ? "00" : "0") : "") + ms
     }
 
+    AudioEngine {
+        id: cppAudioEngine
+    }
+
+    Component.onCompleted: {
+        if (initialAudioFile !== "") {
+            cppAudioEngine.openAudioFile(initialAudioFile)
+        }
+    }
+
     // Drag and drop file support
     DropArea {
         anchors.fill: parent
         onDropped: {
-            if (drop.hasUrls && drop.urls.length > 0) {
-                audioEngine.openAudioFile(drop.urls[0])
+            if (drop.hasUrls && drop.urls.length > 0 && cppAudioEngine) {
+                cppAudioEngine.openAudioFile(drop.urls[0])
             }
         }
     }
@@ -38,21 +47,22 @@ ApplicationWindow {
     Item {
         focus: true
         Keys.onPressed: {
+            if (!cppAudioEngine) return
             if (event.matches(StandardKey.Copy)) {
-                audioEngine.copySelection()
+                cppAudioEngine.copySelection()
                 event.accepted = true
             } else if (event.matches(StandardKey.Cut)) {
-                audioEngine.cutSelection()
+                cppAudioEngine.cutSelection()
                 event.accepted = true
             } else if (event.matches(StandardKey.Paste)) {
-                var insertPos = audioEngine.hasSelection ? audioEngine.selectionStart : audioEngine.viewStartFrame
-                audioEngine.pasteAt(insertPos)
+                var insertPos = cppAudioEngine.hasSelection ? cppAudioEngine.selectionStart : cppAudioEngine.viewStartFrame
+                cppAudioEngine.pasteAt(insertPos)
                 event.accepted = true
             } else if (event.matches(StandardKey.Delete) || event.key === Qt.Key_Backspace) {
-                audioEngine.deleteSelection()
+                cppAudioEngine.deleteSelection()
                 event.accepted = true
             } else if (event.matches(StandardKey.SelectAll)) {
-                audioEngine.setSelection(0, audioEngine.totalFrames)
+                cppAudioEngine.setSelection(0, cppAudioEngine.totalFrames)
                 event.accepted = true
             }
         }
@@ -97,7 +107,7 @@ ApplicationWindow {
 
                 Rectangle { width: 1; height: 28; color: "#2B2D3C"; Layout.leftMargin: 8; Layout.rightMargin: 8 }
 
-                // Import Button
+                // Import Button - uses native system dialog
                 Button {
                     text: "Import Audio"
                     font.pixelSize: 13
@@ -112,48 +122,16 @@ ApplicationWindow {
                         color: parent.down ? "#0077B6" : (parent.hovered ? "#0096C7" : "#00B4D8")
                         radius: 5
                     }
-                    onClicked: fileDialog.open()
+                    onClicked: {
+                        if (cppAudioEngine) cppAudioEngine.importAudioDialog()
+                    }
                 }
 
                 // Edit Buttons
                 Button {
                     text: "Cut (Ctrl+X)"
                     font.pixelSize: 12
-                    enabled: audioEngine.hasSelection
-                    contentItem: Text {
-                        text: parent.text; font: parent.font
-                        color: parent.enabled ? "#F1F5F9" : "#64748B"
-                        horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
-                    }
-                    background: Rectangle {
-                        color: parent.enabled ? (parent.down ? "#334155" : (parent.hovered ? "#475569" : "#1E293B")) : "#161E2E"
-                        border.color: parent.enabled ? "#334155" : "#1E293B"
-                        radius: 5
-                    }
-                    onClicked: audioEngine.cutSelection()
-                }
-
-                Button {
-                    text: "Copy (Ctrl+C)"
-                    font.pixelSize: 12
-                    enabled: audioEngine.hasSelection
-                    contentItem: Text {
-                        text: parent.text; font: parent.font
-                        color: parent.enabled ? "#F1F5F9" : "#64748B"
-                        horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
-                    }
-                    background: Rectangle {
-                        color: parent.enabled ? (parent.down ? "#334155" : (parent.hovered ? "#475569" : "#1E293B")) : "#161E2E"
-                        border.color: parent.enabled ? "#334155" : "#1E293B"
-                        radius: 5
-                    }
-                    onClicked: audioEngine.copySelection()
-                }
-
-                Button {
-                    text: "Paste (Ctrl+V)"
-                    font.pixelSize: 12
-                    enabled: audioEngine.canPaste
+                    enabled: cppAudioEngine && cppAudioEngine.hasSelection
                     contentItem: Text {
                         text: parent.text; font: parent.font
                         color: parent.enabled ? "#F1F5F9" : "#64748B"
@@ -165,15 +143,55 @@ ApplicationWindow {
                         radius: 5
                     }
                     onClicked: {
-                        var pos = audioEngine.hasSelection ? audioEngine.selectionStart : audioEngine.viewStartFrame
-                        audioEngine.pasteAt(pos)
+                        if (cppAudioEngine) cppAudioEngine.cutSelection()
+                    }
+                }
+
+                Button {
+                    text: "Copy (Ctrl+C)"
+                    font.pixelSize: 12
+                    enabled: cppAudioEngine && cppAudioEngine.hasSelection
+                    contentItem: Text {
+                        text: parent.text; font: parent.font
+                        color: parent.enabled ? "#F1F5F9" : "#64748B"
+                        horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
+                    }
+                    background: Rectangle {
+                        color: parent.enabled ? (parent.down ? "#334155" : (parent.hovered ? "#475569" : "#1E293B")) : "#161E2E"
+                        border.color: parent.enabled ? "#334155" : "#1E293B"
+                        radius: 5
+                    }
+                    onClicked: {
+                        if (cppAudioEngine) cppAudioEngine.copySelection()
+                    }
+                }
+
+                Button {
+                    text: "Paste (Ctrl+V)"
+                    font.pixelSize: 12
+                    enabled: cppAudioEngine && cppAudioEngine.canPaste
+                    contentItem: Text {
+                        text: parent.text; font: parent.font
+                        color: parent.enabled ? "#F1F5F9" : "#64748B"
+                        horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
+                    }
+                    background: Rectangle {
+                        color: parent.enabled ? (parent.down ? "#334155" : (parent.hovered ? "#475569" : "#1E293B")) : "#161E2E"
+                        border.color: parent.enabled ? "#334155" : "#1E293B"
+                        radius: 5
+                    }
+                    onClicked: {
+                        if (cppAudioEngine) {
+                            var pos = cppAudioEngine.hasSelection ? cppAudioEngine.selectionStart : cppAudioEngine.viewStartFrame
+                            cppAudioEngine.pasteAt(pos)
+                        }
                     }
                 }
 
                 Button {
                     text: "Delete (Del)"
                     font.pixelSize: 12
-                    enabled: audioEngine.hasSelection
+                    enabled: cppAudioEngine && cppAudioEngine.hasSelection
                     contentItem: Text {
                         text: parent.text; font: parent.font
                         color: parent.enabled ? "#EF4444" : "#64748B"
@@ -184,7 +202,9 @@ ApplicationWindow {
                         border.color: parent.enabled ? "#7F1D1D" : "#1E293B"
                         radius: 5
                     }
-                    onClicked: audioEngine.deleteSelection()
+                    onClicked: {
+                        if (cppAudioEngine) cppAudioEngine.deleteSelection()
+                    }
                 }
 
                 Rectangle { width: 1; height: 28; color: "#2B2D3C"; Layout.leftMargin: 8; Layout.rightMargin: 8 }
@@ -193,7 +213,7 @@ ApplicationWindow {
                 Button {
                     text: "Zoom In (+)"
                     font.pixelSize: 12
-                    enabled: audioEngine.isLoaded
+                    enabled: cppAudioEngine && cppAudioEngine.isLoaded
                     contentItem: Text {
                         text: parent.text; font: parent.font
                         color: parent.enabled ? "#F1F5F9" : "#64748B"
@@ -203,13 +223,15 @@ ApplicationWindow {
                         color: parent.enabled ? (parent.hovered ? "#334155" : "#1E293B") : "#161E2E"
                         radius: 5
                     }
-                    onClicked: audioEngine.zoomAt(0.5, 0.7)
+                    onClicked: {
+                        if (cppAudioEngine) cppAudioEngine.zoomAt(0.5, 0.7)
+                    }
                 }
 
                 Button {
                     text: "Zoom Out (-)"
                     font.pixelSize: 12
-                    enabled: audioEngine.isLoaded
+                    enabled: cppAudioEngine && cppAudioEngine.isLoaded
                     contentItem: Text {
                         text: parent.text; font: parent.font
                         color: parent.enabled ? "#F1F5F9" : "#64748B"
@@ -219,13 +241,15 @@ ApplicationWindow {
                         color: parent.enabled ? (parent.hovered ? "#334155" : "#1E293B") : "#161E2E"
                         radius: 5
                     }
-                    onClicked: audioEngine.zoomAt(0.5, 1.4)
+                    onClicked: {
+                        if (cppAudioEngine) cppAudioEngine.zoomAt(0.5, 1.4)
+                    }
                 }
 
                 Button {
                     text: "Reset View"
                     font.pixelSize: 12
-                    enabled: audioEngine.isLoaded
+                    enabled: cppAudioEngine && cppAudioEngine.isLoaded
                     contentItem: Text {
                         text: parent.text; font: parent.font
                         color: parent.enabled ? "#F1F5F9" : "#64748B"
@@ -235,16 +259,19 @@ ApplicationWindow {
                         color: parent.enabled ? (parent.hovered ? "#334155" : "#1E293B") : "#161E2E"
                         radius: 5
                     }
-                    onClicked: audioEngine.resetView()
+                    onClicked: {
+                        if (cppAudioEngine) cppAudioEngine.resetView()
+                    }
                 }
 
                 Item { Layout.fillWidth: true }
 
                 // Selection info
                 Text {
-                    visible: audioEngine.hasSelection
-                    text: "Selected: " + formatTime(audioEngine.frameToSeconds(audioEngine.selectionEnd - audioEngine.selectionStart)) +
-                          " (" + audioEngine.selectionStart + " - " + audioEngine.selectionEnd + ")"
+                    visible: cppAudioEngine && cppAudioEngine.hasSelection
+                    text: (cppAudioEngine && cppAudioEngine.hasSelection) ?
+                          ("Selected: " + formatTime(cppAudioEngine.frameToSeconds(cppAudioEngine.selectionEnd - cppAudioEngine.selectionStart)) +
+                          " (" + cppAudioEngine.selectionStart + " - " + cppAudioEngine.selectionEnd + ")") : ""
                     font.pixelSize: 12
                     color: "#F87171"
                 }
@@ -254,8 +281,8 @@ ApplicationWindow {
         // ================= PROGRESS BAR (DURING IMPORT) =================
         Rectangle {
             Layout.fillWidth: true
-            height: audioEngine.isDecoding ? 30 : 0
-            visible: audioEngine.isDecoding
+            height: (cppAudioEngine && cppAudioEngine.isDecoding) ? 30 : 0
+            visible: cppAudioEngine && cppAudioEngine.isDecoding
             color: "#1E293B"
             clip: true
 
@@ -275,11 +302,11 @@ ApplicationWindow {
 
                 ProgressBar {
                     Layout.fillWidth: true
-                    value: audioEngine.decodeProgress
+                    value: cppAudioEngine ? cppAudioEngine.decodeProgress : 0
                 }
 
                 Text {
-                    text: Math.floor(audioEngine.decodeProgress * 100) + "%"
+                    text: Math.floor((cppAudioEngine ? cppAudioEngine.decodeProgress : 0) * 100) + "%"
                     font.pixelSize: 12
                     font.bold: true
                     color: "#FFFFFF"
@@ -304,7 +331,7 @@ ApplicationWindow {
                 }
                 Item { Layout.fillWidth: true }
                 Text {
-                    text: "Total: " + formatTime(audioEngine.durationSeconds) + " | Zoom via Wheel | Drag Mask Handles to Resize"
+                    text: "Total: " + formatTime(cppAudioEngine ? cppAudioEngine.durationSeconds : 0) + " | Zoom via Wheel | Drag Mask Handles to Resize"
                     font.pixelSize: 11
                     color: "#64748B"
                 }
@@ -324,7 +351,7 @@ ApplicationWindow {
                     id: thumbWave
                     anchors.fill: parent
                     anchors.margins: 2
-                    audioEngine: audioEngine
+                    audioEngine: cppAudioEngine
                     isThumbnail: true
                     waveColor: "#48CAE4"
                     backgroundColor: "#161824"
@@ -335,10 +362,10 @@ ApplicationWindow {
                     id: maskOverlay
                     anchors.fill: thumbWave
 
-                    property real rStart: (audioEngine.totalFrames > 0 && audioEngine.viewEndFrame > audioEngine.viewStartFrame) ?
-                                          (audioEngine.viewStartFrame / audioEngine.totalFrames) : 0.0
-                    property real rEnd: (audioEngine.totalFrames > 0 && audioEngine.viewEndFrame > audioEngine.viewStartFrame) ?
-                                        (audioEngine.viewEndFrame / audioEngine.totalFrames) : 1.0
+                    property real rStart: (cppAudioEngine && cppAudioEngine.totalFrames > 0 && cppAudioEngine.viewEndFrame > cppAudioEngine.viewStartFrame) ?
+                                          (cppAudioEngine.viewStartFrame / cppAudioEngine.totalFrames) : 0.0
+                    property real rEnd: (cppAudioEngine && cppAudioEngine.totalFrames > 0 && cppAudioEngine.viewEndFrame > cppAudioEngine.viewStartFrame) ?
+                                        (cppAudioEngine.viewEndFrame / cppAudioEngine.totalFrames) : 1.0
 
                     property real maskX: rStart * width
                     property real maskW: Math.max(8, (rEnd - rStart) * width)
@@ -382,14 +409,14 @@ ApplicationWindow {
 
                                 onPressed: {
                                     startX = mouse.x
-                                    origFrame = audioEngine.viewStartFrame
+                                    origFrame = cppAudioEngine ? cppAudioEngine.viewStartFrame : 0
                                 }
                                 onPositionChanged: {
-                                    if (pressed && audioEngine.totalFrames > 0) {
+                                    if (pressed && cppAudioEngine && cppAudioEngine.totalFrames > 0) {
                                         var deltaX = mouse.x - startX
-                                        var deltaFrames = (deltaX / maskOverlay.width) * audioEngine.totalFrames
+                                        var deltaFrames = (deltaX / maskOverlay.width) * cppAudioEngine.totalFrames
                                         var newStart = Math.round(origFrame + deltaFrames)
-                                        audioEngine.setViewStartFrame(newStart)
+                                        cppAudioEngine.setViewStartFrame(newStart)
                                     }
                                 }
                             }
@@ -414,14 +441,14 @@ ApplicationWindow {
 
                                 onPressed: {
                                     startX = mouse.x
-                                    origFrame = audioEngine.viewEndFrame
+                                    origFrame = cppAudioEngine ? cppAudioEngine.viewEndFrame : 0
                                 }
                                 onPositionChanged: {
-                                    if (pressed && audioEngine.totalFrames > 0) {
+                                    if (pressed && cppAudioEngine && cppAudioEngine.totalFrames > 0) {
                                         var deltaX = mouse.x - startX
-                                        var deltaFrames = (deltaX / maskOverlay.width) * audioEngine.totalFrames
+                                        var deltaFrames = (deltaX / maskOverlay.width) * cppAudioEngine.totalFrames
                                         var newEnd = Math.round(origFrame + deltaFrames)
-                                        audioEngine.setViewEndFrame(newEnd)
+                                        cppAudioEngine.setViewEndFrame(newEnd)
                                     }
                                 }
                             }
@@ -442,13 +469,13 @@ ApplicationWindow {
 
                             onPressed: {
                                 startMouseX = mouse.x
-                                origStartFrame = audioEngine.viewStartFrame
-                                origEndFrame = audioEngine.viewEndFrame
+                                origStartFrame = cppAudioEngine ? cppAudioEngine.viewStartFrame : 0
+                                origEndFrame = cppAudioEngine ? cppAudioEngine.viewEndFrame : 0
                             }
                             onPositionChanged: {
-                                if (pressed && audioEngine.totalFrames > 0) {
+                                if (pressed && cppAudioEngine && cppAudioEngine.totalFrames > 0) {
                                     var deltaX = mouse.x - startMouseX
-                                    var deltaFrames = Math.round((deltaX / maskOverlay.width) * audioEngine.totalFrames)
+                                    var deltaFrames = Math.round((deltaX / maskOverlay.width) * cppAudioEngine.totalFrames)
                                     var len = origEndFrame - origStartFrame
                                     var nStart = origStartFrame + deltaFrames
                                     var nEnd = origEndFrame + deltaFrames
@@ -457,12 +484,12 @@ ApplicationWindow {
                                         nStart = 0
                                         nEnd = len
                                     }
-                                    if (nEnd > audioEngine.totalFrames) {
-                                        nEnd = audioEngine.totalFrames
+                                    if (nEnd > cppAudioEngine.totalFrames) {
+                                        nEnd = cppAudioEngine.totalFrames
                                         nStart = nEnd - len
                                     }
 
-                                    audioEngine.setViewRange(nStart, nEnd)
+                                    cppAudioEngine.setViewRange(nStart, nEnd)
                                 }
                             }
                         }
@@ -483,24 +510,26 @@ ApplicationWindow {
                         anchors.fill: parent
                         propagateComposedEvents: true
                         onWheel: {
+                            if (!cppAudioEngine) return
                             var ratio = wheel.x / width
                             if (wheel.angleDelta.y > 0) {
-                                audioEngine.zoomAt(ratio, 0.8)
+                                cppAudioEngine.zoomAt(ratio, 0.8)
                             } else if (wheel.angleDelta.y < 0) {
-                                audioEngine.zoomAt(ratio, 1.25)
+                                cppAudioEngine.zoomAt(ratio, 1.25)
                             }
                             wheel.accepted = true
                         }
                         onPressed: {
+                            if (!cppAudioEngine || cppAudioEngine.totalFrames <= 0) return
                             // Click outside mask jumps active window
                             if (mouse.x < activeWindow.x || mouse.x > activeWindow.x + activeWindow.width) {
                                 var ratio = mouse.x / width
-                                var len = audioEngine.viewEndFrame - audioEngine.viewStartFrame
-                                var nStart = Math.floor(ratio * audioEngine.totalFrames - len / 2)
+                                var len = cppAudioEngine.viewEndFrame - cppAudioEngine.viewStartFrame
+                                var nStart = Math.floor(ratio * cppAudioEngine.totalFrames - len / 2)
                                 var nEnd = nStart + len
                                 if (nStart < 0) { nStart = 0; nEnd = len; }
-                                if (nEnd > audioEngine.totalFrames) { nEnd = audioEngine.totalFrames; nStart = nEnd - len; }
-                                audioEngine.setViewRange(nStart, nEnd)
+                                if (nEnd > cppAudioEngine.totalFrames) { nEnd = cppAudioEngine.totalFrames; nStart = nEnd - len; }
+                                cppAudioEngine.setViewRange(nStart, nEnd)
                             }
                         }
                     }
@@ -517,9 +546,11 @@ ApplicationWindow {
                 }
                 Item { Layout.fillWidth: true }
                 Text {
-                    text: "View: " + formatTime(audioEngine.frameToSeconds(audioEngine.viewStartFrame)) +
-                          " - " + formatTime(audioEngine.frameToSeconds(audioEngine.viewEndFrame)) +
-                          " | Click & Drag to Select | Wheel to Zoom"
+                    text: (cppAudioEngine && cppAudioEngine.isLoaded) ?
+                          ("View: " + formatTime(cppAudioEngine.frameToSeconds(cppAudioEngine.viewStartFrame)) +
+                          " - " + formatTime(cppAudioEngine.frameToSeconds(cppAudioEngine.viewEndFrame)) +
+                          " | Click & Drag to Select | Wheel to Zoom") :
+                          "View: 00:00.000 - 00:00.000 | Click & Drag to Select | Wheel to Zoom"
                     font.pixelSize: 11
                     color: "#64748B"
                 }
@@ -539,10 +570,8 @@ ApplicationWindow {
                     id: detailWave
                     anchors.fill: parent
                     anchors.margins: 2
-                    audioEngine: audioEngine
+                    audioEngine: cppAudioEngine
                     isThumbnail: false
-                    viewStartFrame: audioEngine.viewStartFrame
-                    viewEndFrame: audioEngine.viewEndFrame
                     waveColor: "#00B4D8"
                     backgroundColor: "#161824"
                     selectionColor: "#55FF4D4D"
@@ -559,35 +588,35 @@ ApplicationWindow {
                     property bool isSelecting: false
 
                     onWheel: {
+                        if (!cppAudioEngine) return
                         var ratio = wheel.x / width
                         if (wheel.angleDelta.y > 0) {
-                            audioEngine.zoomAt(ratio, 0.8)
+                            cppAudioEngine.zoomAt(ratio, 0.8)
                         } else if (wheel.angleDelta.y < 0) {
-                            audioEngine.zoomAt(ratio, 1.25)
+                            cppAudioEngine.zoomAt(ratio, 1.25)
                         }
                         wheel.accepted = true
                     }
 
                     onPressed: {
-                        if (!audioEngine.isLoaded || audioEngine.totalFrames <= 0) return
+                        if (!cppAudioEngine || !cppAudioEngine.isLoaded || cppAudioEngine.totalFrames <= 0) return
                         forceActiveFocus()
                         dragStartFrame = detailWave.xToFrame(mouse.x)
                         isSelecting = true
-                        audioEngine.setSelection(dragStartFrame, dragStartFrame)
+                        cppAudioEngine.setSelection(dragStartFrame, dragStartFrame)
                     }
 
                     onPositionChanged: {
-                        if (isSelecting && audioEngine.isLoaded) {
+                        if (isSelecting && cppAudioEngine && cppAudioEngine.isLoaded) {
                             var currentFrame = detailWave.xToFrame(mouse.x)
-                            audioEngine.setSelection(dragStartFrame, currentFrame)
+                            cppAudioEngine.setSelection(dragStartFrame, currentFrame)
                         }
                     }
 
                     onReleased: {
                         isSelecting = false
-                        // If tiny selection (< 10 frames), clear selection
-                        if (Math.abs(audioEngine.selectionEnd - audioEngine.selectionStart) < 10) {
-                            audioEngine.clearSelection()
+                        if (cppAudioEngine && Math.abs(cppAudioEngine.selectionEnd - cppAudioEngine.selectionStart) < 10) {
+                            cppAudioEngine.clearSelection()
                         }
                     }
                 }
@@ -607,7 +636,7 @@ ApplicationWindow {
                 anchors.rightMargin: 12
 
                 Text {
-                    text: audioEngine.statusMessage
+                    text: cppAudioEngine ? cppAudioEngine.statusMessage : ""
                     font.pixelSize: 11
                     color: "#94A3B8"
                 }
@@ -615,28 +644,13 @@ ApplicationWindow {
                 Item { Layout.fillWidth: true }
 
                 Text {
-                    text: audioEngine.isLoaded ?
-                          ("Sample Rate: " + audioEngine.sampleRate + " Hz | Channels: " + audioEngine.channels + " | Frames: " + audioEngine.totalFrames) :
+                    text: (cppAudioEngine && cppAudioEngine.isLoaded) ?
+                          ("Sample Rate: " + cppAudioEngine.sampleRate + " Hz | Channels: " + cppAudioEngine.channels + " | Frames: " + cppAudioEngine.totalFrames) :
                           "No Audio Loaded"
                     font.pixelSize: 11
                     color: "#64748B"
                 }
             }
-        }
-    }
-
-    // File Dialog for Audio Import
-    FileDialog {
-        id: fileDialog
-        title: "Please choose an audio file"
-        nameFilters: [
-            "All supported audio (*.wav *.mp3 *.flac *.aac *.ogg *.m4a *.wma)",
-            "Wave files (*.wav)",
-            "MP3 files (*.mp3)",
-            "All files (*.*)"
-        ]
-        onAccepted: {
-            audioEngine.openAudioFile(fileDialog.fileUrl)
         }
     }
 }

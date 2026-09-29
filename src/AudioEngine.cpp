@@ -2,6 +2,7 @@
 #include <QFileInfo>
 #include <QFile>
 #include <QDir>
+#include <QFileDialog>
 #include <QDebug>
 #include <QTimer>
 #include <QtConcurrent>
@@ -111,6 +112,15 @@ void AudioEngine::openAudioFile(const QString &filePathOrUrl)
 
     // Standard path: QAudioDecoder for MP3, AAC, FLAC, OGG, WAV, etc.
     startDecoding(nativeAbsPath);
+}
+
+void AudioEngine::importAudioDialog()
+{
+    QString filter = tr("All supported audio (*.wav *.mp3 *.flac *.aac *.ogg *.m4a *.wma);;Wave files (*.wav);;MP3 files (*.mp3);;All files (*.*)");
+    QString path = QFileDialog::getOpenFileName(nullptr, tr("Please choose an audio file"), QString(), filter);
+    if (!path.isEmpty()) {
+        openAudioFile(path);
+    }
 }
 
 bool AudioEngine::tryFastWavDecode(const QString &localFilePath)

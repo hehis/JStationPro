@@ -3,6 +3,7 @@
 #include <QPen>
 #include <QBrush>
 #include <QLineF>
+#include <QDebug>
 #include <algorithm>
 
 WaveformItem::WaveformItem(QQuickItem *parent)
@@ -18,8 +19,9 @@ WaveformItem::WaveformItem(QQuickItem *parent)
     setOpaquePainting(true);
 }
 
-void WaveformItem::setAudioEngine(AudioEngine *engine)
+void WaveformItem::setAudioEngine(QObject *engineObj)
 {
+    AudioEngine *engine = qobject_cast<AudioEngine*>(engineObj);
     if (m_audioEngine == engine)
         return;
 

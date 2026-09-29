@@ -25,6 +25,23 @@ ApplicationWindow {
 
     AudioEngine {
         id: cppAudioEngine
+
+        onPlayCursorChanged: {
+            if (isPlaying && isLoaded && !hasSelection) {
+                var mid = viewStartFrame + (viewEndFrame - viewStartFrame) / 2
+                if (playCursor > mid) {
+                    var shift = playCursor - mid
+                    var newStart = viewStartFrame + shift
+                    var newEnd = viewEndFrame + shift
+                    if (newEnd > totalFrames) {
+                        newEnd = totalFrames
+                        newStart = newEnd - (viewEndFrame - viewStartFrame)
+                    }
+                    if (newStart < 0) newStart = 0
+                    setViewRange(newStart, newEnd)
+                }
+            }
+        }
     }
 
     Component.onCompleted: {
@@ -604,6 +621,44 @@ ApplicationWindow {
                         if (cppAudioEngine && Math.abs(cppAudioEngine.selectionEnd - cppAudioEngine.selectionStart) < 10) {
                             cppAudioEngine.setSelection(dragStartFrame, dragStartFrame)
                         }
+                    }
+                }
+            }
+        }
+
+        // ================= PLAYBACK CONTROLS =================
+        Rectangle {
+            Layout.fillWidth: true
+            height: 40
+            color: "#1E202E"
+
+            RowLayout {
+                anchors.centerIn: parent
+                spacing: 16
+
+                ToolButton {
+                    icon.source: cppAudioEngine && cppAudioEngine.isPlaying ? "qrc:/assets/icons/pause.svg" : "qrc:/assets/icons/play.svg"
+                    icon.color: "#FFFFFF"
+                    onClicked: {
+                        if (cppAudioEngine && cppAudioEngine.isLoaded) {
+                            cppAudioEngine.togglePlay()
+                        }
+                    }
+                }
+
+                ToolButton {
+                    icon.source: "qrc:/assets/icons/stop.svg"
+                    icon.color: "#FFFFFF"
+                    onClicked: {
+                        if (cppAudioEngine) cppAudioEngine.stop()
+                    }
+                }
+
+                ToolButton {
+                    icon.source: "qrc:/assets/icons/loop.svg"
+                    icon.color: (cppAudioEngine && cppAudioEngine.isLooping) ? "#80FF80" : "#FFFFFF"
+                    onClicked: {
+                        if (cppAudioEngine) cppAudioEngine.isLooping = !cppAudioEngine.isLooping
                     }
                 }
             }

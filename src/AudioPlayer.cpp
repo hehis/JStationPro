@@ -44,13 +44,6 @@ protected:
         
         m_currentFrame += readFrames;
         
-        QMetaObject::invokeMethod(m_player, [this, current = m_currentFrame]() {
-            if (m_player->m_isPlaying) {
-                m_player->m_playCursor = current;
-                emit m_player->playCursorChanged();
-            }
-        }, Qt::QueuedConnection);
-        
         return readFrames * m_player->m_engine->channels() * sizeof(int16_t);
     }
     
@@ -97,6 +90,20 @@ void AudioPlayer::togglePlay()
             format.setSampleType(QAudioFormat::SignedInt);
 
             m_audioOutput = new QAudioOutput(format, this);
+            m_audioOutput->setNotifyInterval(30); // 30ms interval for smooth UI updates
+            connect(m_audioOutput, &QAudioOutput::notify, this, [this]() {
+                if (m_isPlaying && m_playerDevice) {
+                    // Update play cursor based on actually processed time
+                    qint64 frameOffset = m_audioOutput->processedUSecs() * m_engine->sampleRate() / 1000000;
+                    
+                    qint64 currentFrame = m_playStart + frameOffset;
+                    if (m_isLooping && m_playEnd > m_playStart) {
+                        currentFrame = m_playStart + (frameOffset % (m_playEnd - m_playStart));
+                    }
+                    m_playCursor = currentFrame;
+                    emit playCursorChanged();
+                }
+            });
             connect(m_audioOutput, &QAudioOutput::stateChanged, this, [this](QAudio::State state) {
                 if (state == QAudio::IdleState) {
                     if (!m_isLooping) {

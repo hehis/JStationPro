@@ -8,6 +8,9 @@
 #include <QtConcurrent>
 #include <cmath>
 #include <algorithm>
+#include "AudioPlayer.h"
+#include <QAudioFormat>
+#include <QMetaObject>
 
 AudioEngine::AudioEngine(QObject *parent)
     : QObject(parent)
@@ -23,6 +26,7 @@ AudioEngine::AudioEngine(QObject *parent)
     , m_detectedChannels(2)
     , m_expectedDurationMs(0)
 {
+    m_player = new AudioPlayer(this, this);
 }
 
 AudioEngine::~AudioEngine()
@@ -503,6 +507,7 @@ void AudioEngine::resetView()
     setViewRange(0, totalFrames());
 }
 
+
 void AudioEngine::setSelection(qint64 startFrame, qint64 endFrame)
 {
     if (startFrame > endFrame) {
@@ -515,6 +520,11 @@ void AudioEngine::setSelection(qint64 startFrame, qint64 endFrame)
     if (m_selectionStart != startFrame || m_selectionEnd != endFrame) {
         m_selectionStart = startFrame;
         m_selectionEnd = endFrame;
+        
+        if (m_player) {
+            m_player->stop();
+        }
+        
         emit selectionChanged();
     }
 }

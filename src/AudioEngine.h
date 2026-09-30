@@ -5,8 +5,11 @@
 #include <QUrl>
 #include <QAudioDecoder>
 #include <QAudioBuffer>
+#include <QAudioOutput>
+#include <QIODevice>
 #include <memory>
 #include "PieceTable.h"
+#include "AudioPlayer.h"
 
 class AudioEngine : public QObject {
     Q_OBJECT
@@ -47,6 +50,9 @@ public:
     qint64 selectionEnd() const { return m_selectionEnd; }
     bool hasSelection() const { return m_selectionStart >= 0 && m_selectionEnd > m_selectionStart; }
     bool canPaste() const { return m_pieceTable.canPaste(); }
+
+    Q_PROPERTY(AudioPlayer* player READ player CONSTANT)
+    AudioPlayer* player() const { return m_player; }
 
     const PieceTable& pieceTable() const { return m_pieceTable; }
 
@@ -111,4 +117,6 @@ private:
     int m_detectedSampleRate;
     int m_detectedChannels;
     qint64 m_expectedDurationMs;
+
+    AudioPlayer *m_player;
 };

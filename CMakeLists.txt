@@ -27,6 +27,8 @@ set(SOURCES
     src/PeakCache.cpp
     src/AudioEngine.h
     src/AudioEngine.cpp
+    src/AudioPlayer.h
+    src/AudioPlayer.cpp
     src/WaveformItem.h
     src/WaveformItem.cpp
     qml.qrc
@@ -59,6 +61,7 @@ target_link_libraries(test_piecetable PRIVATE Qt5::Core)
 add_executable(test_audio_engine
     tests/test_audio_engine.cpp
     src/AudioEngine.cpp
+    src/AudioPlayer.cpp
     src/PieceTable.cpp
     src/PeakCache.cpp
 )

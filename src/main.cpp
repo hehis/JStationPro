@@ -3,6 +3,10 @@
 #include <QQmlContext>
 #include "AudioEngine.h"
 #include "WaveformItem.h"
+#include "AudioPlayer.h"
+#include <QFile>
+#include <QTextStream>
+#include <QDebug>
 
 int main(int argc, char *argv[])
 {
@@ -14,6 +18,7 @@ int main(int argc, char *argv[])
 
     qmlRegisterType<WaveformItem>("JStation", 1, 0, "WaveformItem");
     qmlRegisterType<AudioEngine>("JStation", 1, 0, "AudioEngine");
+    qmlRegisterUncreatableType<AudioPlayer>("JStation", 1, 0, "AudioPlayer", "AudioPlayer is exposed via AudioEngine");
 
     QQmlApplicationEngine engine;
 
@@ -26,8 +31,9 @@ int main(int argc, char *argv[])
     const QUrl url(QStringLiteral("qrc:/qml/main.qml"));
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreated,
                      &app, [url](QObject *obj, const QUrl &objUrl) {
-        if (!obj && url == objUrl)
+        if (!obj && url == objUrl) {
             QCoreApplication::exit(-1);
+        }
     }, Qt::QueuedConnection);
     engine.load(url);
 

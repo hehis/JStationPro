@@ -1,4 +1,5 @@
 #include "WaveformItem.h"
+#include "AudioPlayer.h"
 #include <QPainter>
 #include <QPen>
 #include <QBrush>
@@ -36,6 +37,9 @@ void WaveformItem::setAudioEngine(QObject *engineObj)
         connect(m_audioEngine, &AudioEngine::selectionChanged, this, &WaveformItem::onWaveformChanged);
         connect(m_audioEngine, &AudioEngine::isLoadedChanged, this, &WaveformItem::onWaveformChanged);
         connect(m_audioEngine, &AudioEngine::viewRangeChanged, this, &WaveformItem::onWaveformChanged);
+        if (m_audioEngine->player()) {
+            connect(m_audioEngine->player(), &AudioPlayer::playCursorChanged, this, &WaveformItem::onWaveformChanged);
+        }
     }
 
     emit audioEngineChanged();
@@ -320,13 +324,24 @@ void WaveformItem::paint(QPainter *painter)
                     painter->drawLine(QLineF(x2, 0, x2, h));
                 }
             }
-        } else {
-            // Draw single cursor line
+        } else if (m_audioEngine->player() && !m_audioEngine->player()->isPlaying()) {
+            // Draw single cursor line (only if not playing, or draw it anyway?)
+            // Usually we hide the static cursor when playing, and show the play cursor instead.
             if (selStart >= rStart && selStart <= rEnd) {
                 qreal xCursor = (static_cast<qreal>(selStart - rStart) / rLen) * w;
                 painter->setPen(QPen(QColor(255, 80, 80, 220), 1.5));
                 painter->drawLine(QLineF(xCursor, 0, xCursor, h));
             }
+        }
+    }
+    
+    // Draw play cursor
+    if (m_audioEngine->player() && m_audioEngine->player()->playCursor() >= 0) {
+        qint64 pCur = m_audioEngine->player()->playCursor();
+        if (pCur >= rStart && pCur <= rEnd) {
+            qreal xCursor = (static_cast<qreal>(pCur - rStart) / rLen) * w;
+            painter->setPen(QPen(QColor(80, 255, 80, 220), 2.0)); // Green cursor for playback
+            painter->drawLine(QLineF(xCursor, 0, xCursor, h));
         }
     }
 }

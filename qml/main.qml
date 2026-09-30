@@ -25,20 +25,23 @@ ApplicationWindow {
 
     AudioEngine {
         id: cppAudioEngine
+    }
 
-        onPlayCursorChanged: {
-            if (isPlaying && isLoaded && !hasSelection) {
-                var mid = viewStartFrame + (viewEndFrame - viewStartFrame) / 2
-                if (playCursor > mid) {
-                    var shift = playCursor - mid
-                    var newStart = viewStartFrame + shift
-                    var newEnd = viewEndFrame + shift
-                    if (newEnd > totalFrames) {
-                        newEnd = totalFrames
-                        newStart = newEnd - (viewEndFrame - viewStartFrame)
+    Connections {
+        target: cppAudioEngine.player
+        function onPlayCursorChanged() {
+            if (cppAudioEngine.player && cppAudioEngine.player.isPlaying && cppAudioEngine.isLoaded && !cppAudioEngine.hasSelection) {
+                var mid = cppAudioEngine.viewStartFrame + (cppAudioEngine.viewEndFrame - cppAudioEngine.viewStartFrame) / 2
+                if (cppAudioEngine.player.playCursor > mid) {
+                    var shift = cppAudioEngine.player.playCursor - mid
+                    var newStart = cppAudioEngine.viewStartFrame + shift
+                    var newEnd = cppAudioEngine.viewEndFrame + shift
+                    if (newEnd > cppAudioEngine.totalFrames) {
+                        newEnd = cppAudioEngine.totalFrames
+                        newStart = newEnd - (cppAudioEngine.viewEndFrame - cppAudioEngine.viewStartFrame)
                     }
                     if (newStart < 0) newStart = 0
-                    setViewRange(newStart, newEnd)
+                    cppAudioEngine.setViewRange(newStart, newEnd)
                 }
             }
         }
@@ -637,11 +640,11 @@ ApplicationWindow {
                 spacing: 16
 
                 ToolButton {
-                    icon.source: cppAudioEngine && cppAudioEngine.isPlaying ? "qrc:/assets/icons/pause.svg" : "qrc:/assets/icons/play.svg"
+                    icon.source: (cppAudioEngine && cppAudioEngine.player && cppAudioEngine.player.isPlaying) ? "qrc:/assets/icons/pause.svg" : "qrc:/assets/icons/play.svg"
                     icon.color: "#FFFFFF"
                     onClicked: {
-                        if (cppAudioEngine && cppAudioEngine.isLoaded) {
-                            cppAudioEngine.togglePlay()
+                        if (cppAudioEngine && cppAudioEngine.isLoaded && cppAudioEngine.player) {
+                            cppAudioEngine.player.togglePlay()
                         }
                     }
                 }
@@ -650,15 +653,15 @@ ApplicationWindow {
                     icon.source: "qrc:/assets/icons/stop.svg"
                     icon.color: "#FFFFFF"
                     onClicked: {
-                        if (cppAudioEngine) cppAudioEngine.stop()
+                        if (cppAudioEngine && cppAudioEngine.player) cppAudioEngine.player.stop()
                     }
                 }
 
                 ToolButton {
                     icon.source: "qrc:/assets/icons/loop.svg"
-                    icon.color: (cppAudioEngine && cppAudioEngine.isLooping) ? "#80FF80" : "#FFFFFF"
+                    icon.color: (cppAudioEngine && cppAudioEngine.player && cppAudioEngine.player.isLooping) ? "#80FF80" : "#FFFFFF"
                     onClicked: {
-                        if (cppAudioEngine) cppAudioEngine.isLooping = !cppAudioEngine.isLooping
+                        if (cppAudioEngine && cppAudioEngine.player) cppAudioEngine.player.isLooping = !cppAudioEngine.player.isLooping
                     }
                 }
             }

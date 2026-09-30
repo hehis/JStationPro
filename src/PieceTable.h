@@ -43,6 +43,9 @@ public:
     // High performance query of min/max values for a logical range
     PeakPoint queryLogicalRange(qint64 logicalStartFrame, qint64 frameCount) const;
 
+    // Read actual audio samples for playback
+    qint64 readFrames(qint64 logicalStartFrame, qint64 frameCount, int16_t* outBuffer) const;
+
     const std::vector<Piece>& pieces() const { return m_pieces; }
 
 private:

@@ -1,5 +1,9 @@
 <RCC>
     <qresource prefix="/">
         <file>qml/main.qml</file>
+        <file>assets/icons/play.svg</file>
+        <file>assets/icons/pause.svg</file>
+        <file>assets/icons/stop.svg</file>
+        <file>assets/icons/loop.svg</file>
     </qresource>
 </RCC>

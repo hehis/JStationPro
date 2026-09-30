@@ -223,3 +223,48 @@ PeakPoint PieceTable::queryLogicalRange(qint64 logicalStartFrame, qint64 frameCo
 
     return result;
 }
+
+qint64 PieceTable::readFrames(qint64 logicalStartFrame, qint64 frameCount, int16_t* outBuffer) const
+{
+    if (frameCount <= 0 || logicalStartFrame < 0 || m_pieces.empty())
+        return 0;
+
+    qint64 logicalEndFrame = logicalStartFrame + frameCount;
+    qint64 curLogical = 0;
+    qint64 outIndex = 0;
+
+    for (const auto &p : m_pieces) {
+        qint64 pStart = curLogical;
+        qint64 pEnd = curLogical + p.frameCount;
+
+        if (pEnd <= logicalStartFrame) {
+            curLogical = pEnd;
+            continue;
+        }
+        if (pStart >= logicalEndFrame) {
+            break;
+        }
+
+        qint64 overlapStart = std::max(logicalStartFrame, pStart);
+        qint64 overlapEnd = std::min(logicalEndFrame, pEnd);
+        qint64 overlapCount = overlapEnd - overlapStart;
+
+        if (overlapCount > 0) {
+            qint64 inPieceOffset = overlapStart - pStart;
+            qint64 physStart = p.startFrame + inPieceOffset;
+            
+            const int16_t *srcBuffer = (p.source == BufferSource::Original) ? 
+                (m_originalBuffer.isEmpty() ? nullptr : m_originalBuffer.constData()) : 
+                (m_addBuffer.isEmpty() ? nullptr : m_addBuffer.constData());
+                
+            if (srcBuffer) {
+                memcpy(outBuffer + outIndex * m_channels, srcBuffer + physStart * m_channels, overlapCount * m_channels * sizeof(int16_t));
+            } else {
+                memset(outBuffer + outIndex * m_channels, 0, overlapCount * m_channels * sizeof(int16_t));
+            }
+            outIndex += overlapCount;
+        }
+        curLogical = pEnd;
+    }
+    return outIndex;
+}
